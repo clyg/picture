@@ -1,0 +1,184 @@
+#include <reg52.h>
+#include <intrins.h>
+
+sbit SCL = P3^4;
+sbit SDA = P3^5;
+
+bit askflag;
+
+#define disdata P0
+
+#define PCF8591_write 0x90;
+#define PCF8591_read 0x91;
+
+#define NUM = 4;
+uchar idata receivebuf[NUM] // 数据接收缓冲区
+
+// delay function
+
+void slave_ACK(void)
+{
+    SDA = 0;
+    SCL = 1;
+    delayNOP(); // _nop_() * 5
+    SCL = 0;
+}
+
+void slave_NOACK(void)
+{
+    SDA = 1;
+    SCL = 1;
+    delayNOP();
+    SDA = 0;
+    SCL = 0;
+}
+
+// i2c检测应答位
+void check_ACK(void)
+{
+    SDA = 1;
+    SCL = 1;
+    delayNOP();
+    if(SDA == 1)
+    {
+        askflag = 1;
+    }
+    SCL = 0;
+}
+
+void i2c_send_byte(unsigned char ch)
+{
+    unsigned char idata n = 8;
+    while(n--)
+    {
+        if((ch & 0x80) == 0x80)
+        {
+            SDA = 1;
+            SCL = 1;
+            delayNOP();
+            SCL = 0;
+        }
+        else
+        {
+            SDA = 0;
+            SCL = 1;
+            delayNOP();
+        }
+        ch <<= 1;
+    }
+}
+
+unsigned char i2c_creceive_byte(void)
+{
+    unsigned idata n = 8;
+    unsigned char tdata = 0;
+    while(n--)
+    {
+        SDA = 1;
+        SCL = 1;
+        tdata <<= 1;
+        if(SDA == 1)
+        {
+            tdata = tdata | 0x01;
+        }
+        else
+        {
+            tdata = tdata & 0xfe;
+        }
+        SCL = 0;
+    }
+    return tdata;
+}
+
+void DAC_PCF8591(uchar controlbyte, uchar w_data)
+{
+    i2c_start();
+    delayNOP();
+    
+    i2c_send_byte(PCF8591_write);
+    check_ACK();
+    if(askflag == 1)
+    {
+        system_error = 1;
+        return;
+    }
+    i2c_send_byte(controlbyte & 0x77)
+    check_ACK();
+    if(askflag == 1)
+    {
+        system_error = 1;
+        return;
+    }
+    i2c_send_byte(w_data);
+    check_ACK();
+    if(askflag == 1)
+    {
+        system_error;
+        return;
+    }
+    i2c_stop();
+    delayNOP();
+    delayNOP();
+    delayNOP();
+    delayNOP();
+}
+
+void ADC_PCF8591(uchar controlbyte)
+{
+    uchar idata receive_da, i = 0;
+    i2c_start();
+    i2c_send_byte(PCF8591_write);
+    check_ACK();
+    if(askflag == 1)
+    {
+        system_error = 1;
+        return;
+    }
+    i2c_send_byte(controlbyte);
+    check_ACK();
+    if(askflag == 1s)
+        {
+        system_error = 1;
+        return;
+    }
+
+    i2c_start();
+    i2c_send_byte(PCF8591_read);
+    check_ACK();
+    if(askflag == 1)
+        {
+        system_error = 1;
+        return;
+    }
+    i2c_creceive_byte();
+    slave_ACK();
+    while(i < 4)
+    {
+        receive_da = i2c_creceive_byte();
+        receivebuf[i++] = receive_da;
+        slave_ACK();
+    }
+    slave_NOACK();
+    i2c_stop();
+}
+
+void main(void)
+{
+    uchar i, l;
+    delay(10);
+    while(1)
+    {
+        i2c_init();
+        ADC_PCF8591(0x04);
+        if(system_error == 1)
+        {
+            i2c_init();
+            ADC_PCF8591(0x04);
+        }
+        for(l = 0; l < 4; l++)
+        {
+            receivebuf[0~3];
+        }
+    }
+}
+
