@@ -22,49 +22,58 @@ func main() {
 	}
 }
 
+// 函数中所需要使用的flag
 const (
-	IsDir = iota
-	IsFile
-	IsKey
-	IsFull
+	IsDir     = iota // 搜索的对象是文件夹
+	IsFile           // 搜索的对象是文件
+	IsKeyWord        // 要进行关键字匹配
+	IsFull           // 要进行全字匹配
 )
 
+// 搜索目录中的文件或者文件夹的函数
+// dir为要搜索的路径
+// flag为搜索文件还是文件夹
+// keyflag为选择全字匹配还是部分匹配
+// key为匹配的字符串
 func searchPath(dir string, flag int, keyflag int, key string) ([]string, error) {
 	cleanResult()
-	if checkIsDir(dir) {
+	if checkIsDir(dir) { // 如果输入的确实是一个路径并且存在
+		var err error
 		switch flag {
 		case IsDir:
-			scanAllDir(dir)
-			result = keyswitch(keyflag, key)
+			err = scanAllDir(dir)
 		case IsFile:
-			scanAllFile(dir)
-			result = keyswitch(keyflag, key)
+			err = scanAllFile(dir)
 		default:
-			fmt.Println("未知的flag")
+			fmt.Println("未知的文件flag")
+		}
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		return nil, errors.New("输入不是一个路径")
 	}
-
+	if len(result) == 0 {
+		// 如果什么都没有搜索到, 即文件夹为空
+		return []string{}, nil
+	}
+	if (keyflag != IsKeyWord && keyflag != IsFull) || key == "" {
+		// 如果给定的keyflag不正确又或者key为空则认为不进行匹配, 返回所有搜索到的文件或文件夹
+		return result, nil
+	} else {
+		switch keyflag {
+		case IsKeyWord:
+			result = searchKey(key)
+		case IsFull:
+			result = searchFull(key)
+		default:
+			fmt.Println("未知的KeyFlag")
+		}
+	}
 	return result, nil
 }
 
-func keyswitch(keyflag int, word string) []string {
-	keyDirs := make([]string, 0)
-	switch keyflag {
-	case -1:
-		return result
-	case IsKey:
-		keyDirs = searchKey(word)
-	case IsFull:
-		keyDirs = searchFull(word)
-	default:
-		fmt.Println("未知！")
-	}
-
-	return keyDirs
-}
-
+// 从搜索到的字符串中将
 func searchKey(keyword string) []string {
 	keyDir := make([]string, 0)
 	for _, v := range result {
